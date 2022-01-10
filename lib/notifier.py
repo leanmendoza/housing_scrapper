@@ -3,6 +3,8 @@ import logging
 import random
 from lib.sslless_session import SSLlessSession
 import yaml
+from telegram.error import RetryAfter, TimedOut
+import time
 
 class NullNotifier:
     def notify(self, properties):
@@ -24,10 +26,18 @@ class Notifier(NullNotifier):
         self.bot.send_message(chat_id=self.config['chat_id'], text=text)
 
         for prop in properties:
-            logging.info(f"Notifying about {prop['url']}")
-            self.bot.send_message(chat_id=self.config['chat_id'], 
-                    text=f"[{prop['title']}]({prop['url']})",
-                    parse_mode=telegram.ParseMode.MARKDOWN)
+            while True:
+                try:
+                    logging.info(f"Notifying about {prop['url']}")
+                    self.bot.send_message(chat_id=self.config['chat_id'], 
+                            text=f"[{prop['title']}]({prop['url']})",
+                            parse_mode=telegram.ParseMode.MARKDOWN)
+                except RetryAfter as err:
+                    print(err)
+                    print("RetryFor: Sleeping for",err.retry_after)
+                    time.sleep(err.retry_after)
+                    continue
+                break
 
     def test(self, message):
         self.bot.send_message(chat_id=self.config['chat_id'], text=message)
